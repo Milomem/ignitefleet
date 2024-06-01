@@ -1,11 +1,51 @@
-import { Text, View } from 'react-native';
+import { Container, Title, Slogan } from './styles';
+import { useState } from 'react';
 
-import { styles } from './styles';
+import backgroundImg from '../../assets/background.png'
+
+import { Button } from '../../components/Button';
+
+import { WEB_CLIENT_ID, IOS_CLIENT_ID } from '@env'
+import { Alert } from 'react-native';
+import { GoogleSignin } from '@react-native-google-signin/google-signin'
+
+GoogleSignin.configure({
+  scopes: ['email', 'profile'],
+  webClientId: WEB_CLIENT_ID,
+  iosClientId: IOS_CLIENT_ID
+})
 
 export function SignIn() {
+  const [isAutenticating, setIsAuthenticanting] = useState(false)
+
+  async function handleGoogleSignIn() {
+    try {
+      setIsAuthenticanting(true)
+
+      const { idToken } = await GoogleSignin.signIn()
+
+      if(idToken) {
+
+      } else {
+        Alert.alert('Entrar', "Não foi possível conectar-se a sua conta google.")
+        setIsAuthenticanting(false)  
+      }
+
+    } catch (error) {
+      console.log(error)
+      Alert.alert('Entrar', "Não foi possível conectar-se a sua conta google.")
+      setIsAuthenticanting(false)
+    }
+  }
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-    </View>
+    <Container source={backgroundImg}>
+      <Title>Ignite Fleet</Title>
+
+      <Slogan>
+        Gestão de uso de veículos
+      </Slogan>
+      <Button title='Entrar com Google' onPress={handleGoogleSignIn} />
+    </Container>
   );
 }
