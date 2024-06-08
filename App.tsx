@@ -11,7 +11,7 @@ import theme from './src/theme';
 import { Loading } from './src/components/Loading';
 import { StatusBar } from 'react-native';
 
-import { AppProvider, UserProvider } from '@realm/react';
+import { AppProvider, RealmProvider, UserProvider } from '@realm/react';
 import { REALM_APP_ID } from '@env';
 
 export default function App() {
@@ -30,14 +30,16 @@ export default function App() {
 
     <AppProvider id={REALM_APP_ID}>
         <ThemeProvider theme={theme}>
-        <SafeAreaProvider>
+        <SafeAreaProvider style={{ backgroundColor: theme.COLORS.GRAY_800 }}>
           <StatusBar 
             barStyle="light-content" 
             backgroundColor="transparent" 
             translucent 
           />
           <UserProvider fallback={SignIn}>
-            <Routes />
+            <RealmProvider>
+              <Routes />
+            </RealmProvider>
           </UserProvider>
         </SafeAreaProvider>
       </ThemeProvider>
