@@ -14,6 +14,8 @@ import { StatusBar } from 'react-native';
 import { AppProvider, RealmProvider, UserProvider } from '@realm/react';
 import { REALM_APP_ID } from '@env';
 
+import './src/libs/dayjs';
+
 export default function App() {
   const [fontsLoaded] = useFonts({
     Roboto_400Regular,
