@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../components/Button';
 import { Header } from '../../components/header';
 import { LicensePlateInput } from '../../components/licensePlateInput';
 import { TextAreaInput } from '../../components/textAreaInput';
+import { Map } from '../../components/map';
 
 
 import { useNavigation } from '@react-navigation/native';
@@ -11,12 +12,17 @@ import { useUser } from '@realm/react';
 import { useRealm } from '../../libs/realm';
 import { Historic } from '../../libs/realm/schemas/historic';
 
-import { Container, Content } from './styles';
+import { Container, Content, Message } from './styles';
 
 import { TextInput, ScrollView, Alert } from 'react-native';
 
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view'
 import { licensePlateValidate } from '../../utils/licensePlateValidate';
+import { LocationAccuracy, LocationObjectCoords, LocationSubscription, useForegroundPermissions, watchPositionAsync } from 'expo-location';
+import { Loading } from '../../components/Loading';
+import { LocationInfo } from '../../components/localtionInfo';
+import { CarSimple } from 'phosphor-react-native';
+import { getAddressLocation } from '../../utils/getAddressLocation';
 
 
 export function Departure() {
@@ -26,11 +32,15 @@ export function Departure() {
   const [description, setDescription] = useState('');
   const [licensePlate, setLicensePlate] = useState('');
   const [isRegistering, setIsResgistering] = useState(false);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const [currentAddress, setCurrentAddress] = useState<string | null>(null)
+  const [currentCoords, setCurrentCoords] = useState<LocationObjectCoords | null>(null)
 
   const realm = useRealm();
   const user = useUser();
   const { goBack } = useNavigation();
 
+  const [locationForegroundPermission, requestLocationForegroundPermission] = useForegroundPermissions();
 
   function handleDepartureRegister() {
     try {
@@ -64,6 +74,56 @@ export function Departure() {
       setIsResgistering(false)
     }
   }
+
+  useEffect(() => {
+    requestLocationForegroundPermission();
+  }, [])
+
+  useEffect(() => {
+    if(!locationForegroundPermission?.granted){
+      return
+    } 
+
+    let subscription: LocationSubscription;
+
+    watchPositionAsync({
+      accuracy: LocationAccuracy.High,
+      timeInterval: 1000
+    }, (location) => {
+      setCurrentCoords(location.coords)
+
+      getAddressLocation(location.coords)
+      .then(address => {
+        if(address) {
+          setCurrentAddress(address)
+        }
+        })
+        .finally(() => setIsLoadingLocation(false))
+    }).then(response => subscription = response);
+
+    return () => {
+      if(subscription) {
+        subscription.remove()
+      }
+    };
+  }, [locationForegroundPermission?.granted])
+
+  if(isLoadingLocation) {
+    return <Loading />
+  }
+
+  if(!locationForegroundPermission?.granted) {
+    return (
+      <Container>
+        <Header title='Saída' />
+        <Message>
+          Você precisa permitir que o aplicativo tenha acesso a 
+          localização para acessar essa funcionalidade. Por favor, acesse as
+          configurações do seu dispositivo para conceder a permissão ao aplicativo.
+        </Message>
+      </Container>
+    )
+  }
   
   return (
     <Container>
@@ -71,7 +131,19 @@ export function Departure() {
 
        <KeyboardAwareScrollView extraHeight={100}>
         <ScrollView>
+        { currentCoords && <Map coordinates={[currentCoords]} /> }
+
           <Content>
+
+          {
+              currentAddress &&
+              <LocationInfo
+                icon={CarSimple}
+                label='Localização atual'
+                description={currentAddress}
+              />
+            }
+            
             <LicensePlateInput
               ref={licensePlateRef}
               label='Placa do veículo'
