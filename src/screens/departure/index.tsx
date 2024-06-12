@@ -12,17 +12,19 @@ import { useUser } from '@realm/react';
 import { useRealm } from '../../libs/realm';
 import { Historic } from '../../libs/realm/schemas/historic';
 
-import { Container, Content, Message } from './styles';
+import { Container, Content, Message, MessageContent } from './styles';
 
 import { TextInput, ScrollView, Alert } from 'react-native';
 
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view'
 import { licensePlateValidate } from '../../utils/licensePlateValidate';
-import { LocationAccuracy, LocationObjectCoords, LocationSubscription, useForegroundPermissions, watchPositionAsync } from 'expo-location';
+import { LocationAccuracy, LocationObjectCoords, LocationSubscription, requestBackgroundPermissionsAsync, useForegroundPermissions, watchPositionAsync } from 'expo-location';
 import { Loading } from '../../components/Loading';
 import { LocationInfo } from '../../components/localtionInfo';
 import { CarSimple } from 'phosphor-react-native';
 import { getAddressLocation } from '../../utils/getAddressLocation';
+import { startLocationTask } from '../../tasks/backgroundLocationTask';
+import { openSettings } from '../../utils/openSettings';
 
 
 export function Departure() {
@@ -42,7 +44,7 @@ export function Departure() {
 
   const [locationForegroundPermission, requestLocationForegroundPermission] = useForegroundPermissions();
 
-  function handleDepartureRegister() {
+  async function handleDepartureRegister() {
     try {
       if(!licensePlateValidate(licensePlate)) {
         licensePlateRef.current?.focus();
@@ -54,14 +56,35 @@ export function Departure() {
         return Alert.alert('Finalidade', 'Por favor, informe a finalidade da utilização do veículo')
       }
 
-      setIsResgistering(false);
+      if(!currentCoords?.latitude && !currentCoords?.longitude) {
+        return Alert.alert('Localização', 'Não foi possível obter a localização atual. Tente novamente.')
+      }
+
+      setIsResgistering(true);
+
+      const backgroundPermissions = await requestBackgroundPermissionsAsync()
+
+      if(!backgroundPermissions.granted) {
+        setIsResgistering(false)
+        return Alert.alert(
+          'Localização', 
+          'É necessário permitir que o App tenha acesso localização em segundo plano. Acesse as configurações do dispositivo e habilite "Permitir o tempo todo."',
+          [{ text: 'Abrir configurações', onPress: openSettings }]
+        )
+      }
+
+      await startLocationTask();
 
       realm.write(() => {
         realm.create('Historic', Historic.generate({
           user_id: user!.id,
           license_plate: licensePlate,
           description,
-          coords: [] // Add an empty array for the coords property
+          coords:[{
+            latitude: currentCoords.latitude,
+            longitude: currentCoords.longitude,
+            timestamp: new Date().getTime()
+          }]
         }))
       });
 
@@ -116,11 +139,15 @@ export function Departure() {
     return (
       <Container>
         <Header title='Saída' />
-        <Message>
-          Você precisa permitir que o aplicativo tenha acesso a 
-          localização para acessar essa funcionalidade. Por favor, acesse as
-          configurações do seu dispositivo para conceder a permissão ao aplicativo.
-        </Message>
+        <MessageContent>
+          <Message>
+            Você precisa permitir que o aplicativo tenha acesso a 
+            localização para acessar essa funcionalidade. Por favor, acesse as
+            configurações do seu dispositivo para conceder a permissão ao aplicativo.
+          </Message>
+
+          <Button title='Abrir configurações' onPress={openSettings} />
+        </MessageContent>
       </Container>
     )
   }
